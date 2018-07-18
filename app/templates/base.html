@@ -1,17 +1,32 @@
 <html>
   <head>
-    {% if title %}
-    <title>{{title}} - microblog</title>
-    {% else %}
-    <title>microblog</title>
-    {% endif %}
+      {% if title %}
+      <title>{{title}} - microblog</title>
+      {% else %}
+      <title>microblog</title>
+      {% endif %}
+      <link href="/static/bootstrap/css/bootstrap.min.css" rel="stylesheet" media="screen">
+      <link href="/static/bootstrap/css/bootstrap-responsive.min.css" rel="stylesheet">
+      <script src="http://code.jquery.com/jquery-latest.js"></script>
+      <script src="/static/bootstrap/js/bootstrap.min.js"></script>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
   </head>
   <body>
-    <div>Microblog:
+  <div>Microblog:
       <a href="{{ url_for('index') }}">Home</a>
       {% if g.user.is_authenticated %}
-      | <a href="{{ url_for('user', nickname = g.user.nickname) }}">Your Profile</a>
-      | <a href="{{ url_for('logout') }}">Logout</a>
+      | <a href="{{ url_for('user', nickname = g.user.nickname) }}">
+          Your Profile
+      </a>
+      {% if search %}
+      | <form style="display: inline;" action="{{url_for('search')}}" method="post" name="search">
+          {{g.search_form.hidden_tag()}}{{g.search_form.search(size=20)}}
+          <input type="submit" value="Search">
+      </form>
+      {%endif%}
+      | <a href="{{ url_for('logout') }}">
+          Logout
+      </a>
       {% endif %}
     </div>
     <hr>

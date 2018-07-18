@@ -6,10 +6,13 @@ __email__ = 'kbsonlong@gmail.com'
 from flask import render_template,flash,redirect,session,url_for,request,g
 from flask_login import login_user,logout_user,current_user,login_required
 from app import app,db,lm,oid
-from .forms import LoginForm,EditForm,PostForm
+from .forms import LoginForm,EditForm,PostForm,SearchForm
 from .models import User,Post
 from datetime import datetime
 from config import POSTS_PER_PAGE
+from config import MAX_SEARCH_RESULTS
+from .emails import follower_notification
+
 
 
 @lm.user_loader
@@ -23,6 +26,7 @@ def before_reques():
         g.user.last_seen = datetime.utcnow()
         db.session.add(g.user)
         db.session.commit()
+        g.search_form = SearchForm()
 
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -66,6 +70,11 @@ def after_login(resp):
     login_user(user,remember=remember_me)
     return redirect(request.args.get('next')) or url_for('index')
 
+import sys
+if sys.version_info >= (3, 0):
+    enable_search = False
+else:
+    enable_search = True
 @app.route('/', methods = ['GET', 'POST'])
 @app.route('/index', methods = ['GET', 'POST'])
 @app.route('/index/<int:page>', methods = ['GET', 'POST'])
@@ -79,11 +88,11 @@ def index(page = 1):
         flash('Your post is now live!')
         return redirect(url_for('index'))
     posts = g.user.followed_posts().paginate(page, POSTS_PER_PAGE, False).items
-    print(posts.items)
     return render_template('index.html',
         title = 'Home',
         form = form,
-        posts = posts)
+        posts = posts,
+        search = enable_search)
 
 
 
@@ -149,6 +158,7 @@ def follow(nickname):
     db.session.add(u)
     db.session.commit()
     flash('You are now following ' + nickname + '!')
+    follower_notification(user,g.user)
     return redirect(url_for('user', nickname=nickname))
 
 @app.route('/unfollow/<nickname>')
@@ -169,3 +179,18 @@ def unfollow(nickname):
     db.session.commit()
     flash('You have stopped following ' + nickname + '.')
     return redirect(url_for('user', nickname=nickname))
+
+@app.route('/search', methods = ['POST'])
+@login_required
+def search():
+    if not g.search_form.validate_on_submit():
+        return redirect(url_for('index'))
+    return redirect(url_for('search_results', query = g.search_form.search.data))
+
+@app.route('/search_results/<query>')
+@login_required
+def search_results(query):
+    results = Post.query.whoosh_search(query, MAX_SEARCH_RESULTS).all()
+    return render_template('search_results.html',
+        query = query,
+        results = results)
